@@ -6,6 +6,24 @@ import Layout from '../layouts/Layout';
 
 function Items() {
   const [items, setItems] = useState([]);
+  const [item, setItem] = useState([]);
+  const [formData, setFormData] = useState({
+    item_code: '',
+    name: '',
+    price: '',
+    min_stock: '',
+    description: '',
+  });
+  const [editFormData, setEditFormData] = useState({
+    _method: 'PUT',
+    name: item.name,
+    price: item.price,
+    min_stock: item.min_stock,
+    description: item.description,
+  });
+  const [isEditing, setIsEditing] = useState(false);
+  const [selectedItemId, setSelectedItemId] = useState(null);
+  const [showModal, setShowModal] = useState(false);
   const navigate = useNavigate();
   const token = localStorage.getItem('token');
 
@@ -14,6 +32,98 @@ function Items() {
     await axios.get('http://localhost:8000/api/items').then((response) => {
       setItems(response.data.data);
     });
+  };
+
+  const fetchDataById = async () => {
+    axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
+    await axios
+      .get(`http://localhost:8000/api/items/${selectedItemId}`)
+      .then((response) => {
+        setItem(response.data.data);
+      });
+  };
+
+  const handleInputChange = (e) => {
+    setFormData({ ...formData, [e.target.name]: e.target.value });
+  };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+
+    try {
+      axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
+      const response = await axios.post(
+        'http://localhost:8000/api/items',
+        formData
+      );
+      console.log(response.data);
+      setFormData({
+        item_code: '',
+        name: '',
+        price: '',
+        min_stock: '',
+        description: '',
+      });
+
+      fetchData();
+      setShowModal(false);
+    } catch (error) {
+      console.error('Error:', error);
+    }
+  };
+
+  const handleEdit = (item) => {
+    setSelectedItemId(item.id);
+    setEditFormData({
+      id: item.id,
+      item_code: item.item_code,
+      name: item.name,
+      price: item.price,
+      min_stock: item.min_stock,
+      description: item.description,
+    });
+    setIsEditing(true);
+  };
+
+  const handleEditInputChange = (e) => {
+    setEditFormData({ ...editFormData, [e.target.name]: e.target.value });
+  };
+
+  const handleEditSubmit = async (e) => {
+    e.preventDefault();
+    try {
+      axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
+      const response = await axios.post(
+        `http://localhost:8000/api/items/${selectedItemId}`,
+        editFormData
+      );
+      console.log(response.data);
+
+      setEditFormData({
+        id: '',
+        item_code: '',
+        name: '',
+        price: '',
+        min_stock: '',
+        description: '',
+      });
+
+      fetchData();
+      setIsEditing(false);
+    } catch (error) {
+      console.error('Error:', error);
+    }
+  };
+
+  const handleDelete = async (itemCode) => {
+    try {
+      axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
+      await axios.delete(`http://localhost:8000/api/items/${itemCode}`);
+      console.log(`Item with item_code ${itemCode} deleted`);
+      setItems(items.filter((item) => item.item_code !== itemCode));
+    } catch (error) {
+      console.error('Error deleting item:', error);
+    }
   };
 
   useEffect(() => {
@@ -77,6 +187,13 @@ function Items() {
                       List Item
                     </h6>
                   </div>
+                  <button
+                    type="button"
+                    className="btn btn-primary mt-3"
+                    onClick={() => setShowModal(true)}
+                  >
+                    <i className="fas fa-plus"></i> Add Item
+                  </button>
                 </div>
                 <div className="card-body px-0 pb-2">
                   <div className="table-responsive p-0">
@@ -119,7 +236,7 @@ function Items() {
                               </td>
                               <td className="align-middle">
                                 <p className="text-secondary text-xs font-weight-normal px-3 py-1">
-                                  {item.price}
+                                  {Number(item.price).toLocaleString('id-ID')}
                                 </p>
                               </td>
                               <td className="align-middle">
@@ -133,14 +250,22 @@ function Items() {
                                 </p>
                               </td>
                               <td className="align-middle">
-                                <p className="text-secondary text-xs font-weight-normal px-3 py-1">
-                                  <a
-                                    href="/inventaris/edit/"
+                                <div className="d-flex gap-2">
+                                  <button
+                                    type="button"
                                     className="btn btn-sm bg-gradient-warning"
+                                    onClick={() => handleEdit(item.item_code)}
                                   >
                                     <i className="fas fa-edit"></i> Edit
-                                  </a>
-                                </p>
+                                  </button>
+                                  <button
+                                    type="button"
+                                    className="btn btn-sm bg-gradient-danger"
+                                    onClick={() => handleDelete(item.item_code)}
+                                  >
+                                    <i className="fas fa-trash"></i> Delete
+                                  </button>
+                                </div>
                               </td>
                             </tr>
                           );
@@ -153,6 +278,158 @@ function Items() {
             </div>
           </div>
         </div>
+
+        {showModal && (
+          <div
+            className="modal"
+            tabIndex="-1"
+            role="dialog"
+            style={{ display: 'block' }}
+          >
+            <div className="modal-dialog" role="document">
+              <div className="modal-content">
+                <div className="modal-header">
+                  <h5 className="modal-title">Add Item</h5>
+                  <button
+                    type="button"
+                    className="btn-close"
+                    onClick={() => setShowModal(false)}
+                  ></button>
+                </div>
+                <div className="modal-body">
+                  <form onSubmit={handleSubmit}>
+                    <div className="mb-3">
+                      <label className="form-label">Item Code</label>
+                      <input
+                        type="text"
+                        className="form-control"
+                        name="item_code"
+                        value={formData.item_code}
+                        onChange={handleInputChange}
+                      />
+                    </div>
+                    <div className="mb-3">
+                      <label className="form-label">Nama</label>
+                      <input
+                        type="text"
+                        className="form-control"
+                        name="name"
+                        value={formData.name}
+                        onChange={handleInputChange}
+                      />
+                    </div>
+                    <div className="mb-3">
+                      <label className="form-label">Harga</label>
+                      <input
+                        type="text"
+                        className="form-control"
+                        name="price"
+                        value={formData.price}
+                        onChange={handleInputChange}
+                      />
+                    </div>
+                    <div className="mb-3">
+                      <label className="form-label">Min Stok</label>
+                      <input
+                        type="text"
+                        className="form-control"
+                        name="min_stock"
+                        value={formData.min_stock}
+                        onChange={handleInputChange}
+                      />
+                    </div>
+                    <div className="mb-3">
+                      <label className="form-label">Deskripsi</label>
+                      <input
+                        type="text"
+                        className="form-control"
+                        name="description"
+                        value={formData.description}
+                        onChange={handleInputChange}
+                      />
+                    </div>
+
+                    <button type="submit" className="btn btn-primary">
+                      Submit
+                    </button>
+                  </form>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Modal for Editing */}
+        {isEditing && (
+          <div
+            className="modal"
+            tabIndex="-1"
+            role="dialog"
+            style={{ display: 'block' }}
+          >
+            <div className="modal-dialog" role="document">
+              <div className="modal-content">
+                <div className="modal-header">
+                  <h5 className="modal-title">Edit Item</h5>
+                  <button
+                    type="button"
+                    className="btn-close"
+                    onClick={() => setIsEditing(false)}
+                  ></button>
+                </div>
+                <div className="modal-body">
+                  <form onSubmit={handleEditSubmit}>
+                    <div className="mb-3">
+                      <label className="form-label">Nama</label>
+                      <input
+                        type="text"
+                        className="form-control"
+                        name="name"
+                        value={editFormData.name}
+                        onChange={handleEditInputChange}
+                      />
+                    </div>
+                    <div className="mb-3">
+                      <label className="form-label">Harga</label>
+                      <input
+                        type="text"
+                        className="form-control"
+                        name="price"
+                        value={editFormData.price}
+                        onChange={handleEditInputChange}
+                      />
+                    </div>
+                    <div className="mb-3">
+                      <label className="form-label">Min Stok</label>
+                      <input
+                        type="text"
+                        className="form-control"
+                        name="min_stock"
+                        value={editFormData.min_stock}
+                        onChange={handleEditInputChange}
+                      />
+                    </div>
+                    <div className="mb-3">
+                      <label className="form-label">Deskripsi</label>
+                      <textarea
+                        name="description"
+                        cols="30"
+                        rows="10"
+                        className="form-control"
+                        onChange={handleEditInputChange}
+                      >
+                        {editFormData.description}
+                      </textarea>
+                    </div>
+                    <button type="submit" className="btn btn-primary">
+                      Submit
+                    </button>
+                  </form>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
       </main>
     </>
   );
